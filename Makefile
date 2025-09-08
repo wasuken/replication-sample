@@ -3,12 +3,13 @@
 help:
 	@echo "MySQL Replication Commands:"
 	@echo "  up     - コンテナ起動"
-	@echo "  setup  - レプリケーション自動設定"
+	@echo "  setup  - レプリケーション設定"
 	@echo "  test   - 動作テスト"
 	@echo "  down   - コンテナ停止・削除"
 	@echo "  logs   - ログ表示"
 
 up:
+	@if [ ! -f .env ]; then cp .env.example .env && echo "✅ .envを作成しました"; fi
 	docker compose up -d
 	@echo "MySQL起動待機中..."
 	@until docker compose exec mysql-master mysqladmin ping --silent 2>/dev/null; do sleep 2; done

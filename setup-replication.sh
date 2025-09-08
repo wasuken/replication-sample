@@ -1,11 +1,26 @@
 #!/bin/bash
 set -e
 
+# .envが存在しない場合は.env.exampleから作成
+if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo "✅ .env.exampleから.envを作成しました"
+        echo "💡 必要に応じて.envを編集してください"
+    else
+        echo "❌ .env.exampleが見つかりません"
+        exit 1
+    fi
+fi
+
+# 環境変数読み込み
+source .env
+
 echo "🔧 レプリケーション設定開始..."
 
 # 1. Binary Log Status確認
 echo "📋 Master Status確認中..."
-STATUS=$(docker compose exec mysql-master mysql -uroot -prootpassword -e "SHOW BINARY LOG STATUS;" 2>/dev/null)
+STATUS=$(docker compose exec mysql-master mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW BINARY LOG STATUS;" 2>/dev/null)
 echo "$STATUS"
 
 # 2. 値を抽出
@@ -26,19 +41,19 @@ until docker compose exec mysql-slave mysqladmin ping --silent 2>/dev/null; do
 done
 echo "✅ スレーブ起動完了"
 
-# 3. スレーブにtestdb作成
-echo "📄 testdb作成中..."
-docker compose exec mysql-slave mysql -uroot -prootpassword -e "CREATE DATABASE IF NOT EXISTS testdb;" 2>/dev/null
+# 3. スレーブにデータベース作成
+echo "📄 ${MYSQL_DATABASE}作成中..."
+docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};" 2>/dev/null
 
 # 4. レプリケーション設定
 echo "🔗 レプリケーション設定中..."
-docker compose exec mysql-slave mysql -uroot -prootpassword -e "
+docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "
 STOP REPLICA;
 RESET REPLICA ALL;
 CHANGE REPLICATION SOURCE TO 
   SOURCE_HOST='mysql-master', 
-  SOURCE_USER='replica', 
-  SOURCE_PASSWORD='replica_password', 
+  SOURCE_USER='${REPLICA_USER}', 
+  SOURCE_PASSWORD='${REPLICA_PASSWORD}', 
   SOURCE_LOG_FILE='$LOG_FILE', 
   SOURCE_LOG_POS=$LOG_POS,
   GET_SOURCE_PUBLIC_KEY=1;
@@ -46,6 +61,6 @@ START REPLICA;" 2>/dev/null
 
 # 5. 動作確認
 echo "✅ レプリケーション状態確認:"
-docker compose exec mysql-slave mysql -uroot -prootpassword -e "SHOW REPLICA STATUS\G" 2>/dev/null | grep -E "(Replica_IO_Running|Replica_SQL_Running|Last_.*Error)"
+docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW REPLICA STATUS\G" 2>/dev/null | grep -E "(Replica_IO_Running|Replica_SQL_Running|Last_.*Error)"
 
 echo "✅ レプリケーション設定完了"

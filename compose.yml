@@ -3,8 +3,8 @@ services:
     image: mysql:8.4
     container_name: mysql-master
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: testdb
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
       - ./master/conf/master.cnf:/etc/mysql/conf.d/master.cnf
       - ./master/init:/docker-entrypoint-initdb.d
@@ -23,7 +23,7 @@ services:
     image: mysql:8.4
     container_name: mysql-slave
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - ./slave/conf/slave.cnf:/etc/mysql/conf.d/slave.cnf
       - ./slave/init:/docker-entrypoint-initdb.d

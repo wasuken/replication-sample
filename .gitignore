@@ -1,0 +1,16 @@
+# セキュリティ関連
+.env
+secrets/
+
+# 動的生成ファイル
+master/conf/master.cnf
+master/init/01-create-replication-user.sql
+slave/conf/slave.cnf
+slave/init/01-create-replication-user.sql
+
+# Docker関連
+.docker/
+
+# その他
+*.log
+.DS_Store
