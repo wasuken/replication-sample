@@ -12,6 +12,12 @@ services:
       - "3506:3306"
     networks:
       - mysql-replication
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   mysql-slave:
     image: mysql:8.4
@@ -25,8 +31,15 @@ services:
       - "3507:3306"
     networks:
       - mysql-replication
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - mysql-master
+      mysql-master:
+        condition: service_healthy
 
 networks:
   mysql-replication:

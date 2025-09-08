@@ -19,6 +19,13 @@ if [ -z "$LOG_FILE" ] || [ -z "$LOG_POS" ]; then
     exit 1
 fi
 
+echo "⏳ スレーブ起動待機中..."
+until docker compose exec mysql-slave mysqladmin ping --silent 2>/dev/null; do 
+    sleep 2
+    echo "  - スレーブ待機中..."
+done
+echo "✅ スレーブ起動完了"
+
 # 3. スレーブにtestdb作成
 echo "📄 testdb作成中..."
 docker compose exec mysql-slave mysql -uroot -prootpassword -e "CREATE DATABASE IF NOT EXISTS testdb;" 2>/dev/null
