@@ -26,3 +26,7 @@ down:
 
 logs:
 	docker compose logs --tail=20
+
+proxy-admin:
+	@echo "📊 ProxySQL管理画面: http://localhost:6032"
+	@echo "   ユーザー: admin / パスワード: admin"

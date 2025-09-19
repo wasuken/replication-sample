@@ -41,6 +41,28 @@ services:
       mysql-master:
         condition: service_healthy
 
+  proxysql:
+    image: proxysql/proxysql:2.5.5
+    container_name: proxysql
+    volumes:
+      - ./proxysql/proxysql.cnf:/etc/proxysql.cnf
+    ports:
+      - "${PROXYSQL_EXTERNAL_PORT}:6033"      # アプリケーション接続
+      - "${PROXYSQL_ADMIN_EXTERNAL_PORT}:6032" # 管理インターフェース
+    networks:
+      - mysql-replication
+    healthcheck:
+      test: ["CMD", "proxysql", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+      mysql-slave:
+        condition: service_healthy
+
 networks:
   mysql-replication:
     driver: bridge
