@@ -41,6 +41,28 @@ services:
       mysql-master:
         condition: service_healthy
 
+  mysql-slave-2:
+    image: mysql:8.4
+    container_name: mysql-slave-2
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./slave2/conf/slave.cnf:/etc/mysql/conf.d/slave.cnf
+      - ./slave2/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3508:3306"
+    networks:
+      - mysql-replication
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+
 networks:
   mysql-replication:
     driver: bridge

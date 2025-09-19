@@ -18,6 +18,9 @@ source .env
 
 echo "🔧 レプリケーション設定開始..."
 
+# スレーブリスト定義
+SLAVES=("mysql-slave" "mysql-slave-2")
+
 # 1. Binary Log Status確認
 echo "📋 Master Status確認中..."
 STATUS=$(docker compose exec mysql-master mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW BINARY LOG STATUS;" 2>/dev/null)
@@ -34,33 +37,37 @@ if [ -z "$LOG_FILE" ] || [ -z "$LOG_POS" ]; then
     exit 1
 fi
 
-echo "⏳ スレーブ起動待機中..."
-until docker compose exec mysql-slave mysqladmin ping --silent 2>/dev/null; do 
-    sleep 2
-    echo "  - スレーブ待機中..."
+# 3. 各スレーブでレプリケーション設定
+for SLAVE in "${SLAVES[@]}"; do
+    echo "⏳ ${SLAVE}起動待機中..."
+    until docker compose exec $SLAVE mysqladmin ping --silent 2>/dev/null; do 
+        sleep 2
+        echo "  - ${SLAVE}待機中..."
+    done
+    echo "✅ ${SLAVE}起動完了"
+
+    # スレーブにデータベース作成
+    echo "📄 ${SLAVE}に${MYSQL_DATABASE}作成中..."
+    docker compose exec $SLAVE mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};" 2>/dev/null
+
+    # レプリケーション設定
+    echo "🔗 ${SLAVE}レプリケーション設定中..."
+    docker compose exec $SLAVE mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "
+    STOP REPLICA;
+    RESET REPLICA ALL;
+    CHANGE REPLICATION SOURCE TO 
+      SOURCE_HOST='mysql-master', 
+      SOURCE_USER='${REPLICA_USER}', 
+      SOURCE_PASSWORD='${REPLICA_PASSWORD}', 
+      SOURCE_LOG_FILE='$LOG_FILE', 
+      SOURCE_LOG_POS=$LOG_POS,
+      GET_SOURCE_PUBLIC_KEY=1;
+    START REPLICA;" 2>/dev/null
+
+    # 動作確認
+    echo "✅ ${SLAVE}レプリケーション状態確認:"
+    docker compose exec $SLAVE mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW REPLICA STATUS\G" 2>/dev/null | grep -E "(Replica_IO_Running|Replica_SQL_Running|Last_.*Error)"
+    echo ""
 done
-echo "✅ スレーブ起動完了"
 
-# 3. スレーブにデータベース作成
-echo "📄 ${MYSQL_DATABASE}作成中..."
-docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};" 2>/dev/null
-
-# 4. レプリケーション設定
-echo "🔗 レプリケーション設定中..."
-docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "
-STOP REPLICA;
-RESET REPLICA ALL;
-CHANGE REPLICATION SOURCE TO 
-  SOURCE_HOST='mysql-master', 
-  SOURCE_USER='${REPLICA_USER}', 
-  SOURCE_PASSWORD='${REPLICA_PASSWORD}', 
-  SOURCE_LOG_FILE='$LOG_FILE', 
-  SOURCE_LOG_POS=$LOG_POS,
-  GET_SOURCE_PUBLIC_KEY=1;
-START REPLICA;" 2>/dev/null
-
-# 5. 動作確認
-echo "✅ レプリケーション状態確認:"
-docker compose exec mysql-slave mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SHOW REPLICA STATUS\G" 2>/dev/null | grep -E "(Replica_IO_Running|Replica_SQL_Running|Last_.*Error)"
-
-echo "✅ レプリケーション設定完了"
+echo "✅ 全スレーブのレプリケーション設定完了"
